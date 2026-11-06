@@ -36,7 +36,7 @@ export async function signup(req: Request, res: Response) {
 
     } catch (error) {
         return res.status(400).json({
-            error: error.message,
+            message: error
         });
     }
 }
@@ -73,7 +73,7 @@ export async function signin(req: Request, res: Response) {
         return res.json({ token });
     } catch (error) {
         return res.status(400).json({
-            error: error.message,
+            message: error
         });
     }
 }

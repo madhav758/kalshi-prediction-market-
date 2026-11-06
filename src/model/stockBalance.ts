@@ -33,6 +33,6 @@ const stockBalanceSchema = new mongoose.Schema({
 })
 
 
-stockBalanceSchema.index({ marketId: 1, type: 1 }, { unique: true })
+stockBalanceSchema.index({ userId: 1, marketId: 1, type: 1 }, { unique: true })
 
 export const StockBalance = mongoose.model("StockBalance", stockBalanceSchema)

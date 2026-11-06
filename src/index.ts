@@ -3,6 +3,7 @@ import mongoose from "mongoose"
 import "dotenv/config";
 
 const app = express();
+app.use(express.json());
 
 import authRouter from "./routes/auth"
 import marketRouter from "./routes/market"
@@ -23,6 +24,6 @@ async function main() {
 }
 main();
 
-app.use(express.json());
+
 
 
