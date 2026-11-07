@@ -472,3 +472,41 @@ export async function deleteOrder(req: Request, res: Response) {
     }
 
 }
+
+//User Positions / Portfolio
+export async function getUserPositions(req: Request, res: Response) {
+    try {
+        const positions = await StockBalance.find({
+            userId: req.userId,
+            qty: { $gt: 0 }
+        }).populate("marketId");
+
+        return res.status(200).json(positions);
+    } catch (error: any) {
+        return res.status(500).json({
+            message: "Error fetching user positions",
+            error: error.message
+        });
+    }
+}
+
+//User Active Orders
+export async function getUserOrders(req: Request, res: Response) {
+    try {
+        const [bids, asks] = await Promise.all([
+            Bid.find({ userId: req.userId, qty: { $gt: 0 } }).populate("orderBookId"),
+            Ask.find({ userId: req.userId, qty: { $gt: 0 } }).populate("orderBookId")
+        ]);
+
+        return res.status(200).json({
+            bids,
+            asks
+        });
+    } catch (error: any) {
+        return res.status(500).json({
+            message: "Error fetching active orders",
+            error: error.message
+        });
+    }
+}
+
