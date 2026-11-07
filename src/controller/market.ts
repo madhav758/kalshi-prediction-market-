@@ -13,8 +13,9 @@ import { OrderBook } from "../model/orderBook";
 import { StockBalance } from "../model/stockBalance";
 import { User } from "../model/user";
 
-import { createMarketSchema, createOrderSchema } from "../types/market";
+import { createMarketSchema, createOrderSchema, deleteOrderSchema } from "../types/market";
 import type { Request, Response } from "express";
+import { WalletEvent } from "../model/walletEvent";
 
 
 
@@ -390,4 +391,84 @@ export async function createOrder(req: Request, res: Response) {
         remainingQty,
         status
     });
+}
+
+export async function deleteOrder(req: Request, res: Response) {
+    const { success, data } = deleteOrderSchema.safeParse(req.body);
+    if (!success) {
+        return res.status(409).json({
+            message: "invalid Input!"
+        })
+    }
+    // of buy order then  remove the amount from the users locked balance and add them to the balance 
+    // if sell , remove the locked stock qty  from the users stockBalance 
+    if (data.orderType === "buy") {
+
+        const pendingBid = await Bid.findOne({
+            _id: data.orderId,
+            userId: req.userId,
+        })
+        if (!pendingBid) {
+            return res.status(400).json({
+                message: "no pendng bids"
+            })
+        }
+        const refund = pendingBid.price * pendingBid.qty;
+        const user = await User.findByIdAndUpdate(
+            { _id: pendingBid.userId },
+            {
+                $inc: {
+                    lockedBalance: -refund,
+                    balance: +refund
+                }
+            },
+        )
+        //delete the bid 
+        await Bid.deleteOne({
+            _id: pendingBid._id
+        })
+        //update the wallet event 
+        await WalletEvent.create({
+            userId: req.userId,
+            tx_type: "refund",
+            amount: refund,
+            externalId: pendingBid._id
+        });
+    } else {
+        const pendingAsk = await Ask.findOne({
+            _id: data.orderId,
+            userId: req.userId,
+        })
+        if (!pendingAsk) {
+            return res.status(400).json({
+                message: "No peding asks"
+            })
+        }
+        const orderbook = await OrderBook.findById(pendingAsk.orderBookId);
+        if (!orderbook) {
+            return res.status(404).json({ message: "Orderbook not found" });
+        }
+
+        //Unlock the contracts in StockBalance
+        await StockBalance.findOneAndUpdate(
+            {
+                userId: pendingAsk.userId,
+                marketId: orderbook.marketId,
+                type: pendingAsk.stockType
+            },
+            {
+                $inc: {
+                    locked: -pendingAsk.qty
+                }
+            }
+        );
+        //Delete the ask from the book
+        await Ask.deleteOne({ _id: pendingAsk._id });
+
+        return res.status(200).json({
+            message: "Sell order canceled successfully"
+        });
+
+    }
+
 }

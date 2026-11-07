@@ -86,7 +86,7 @@ async function resolve(req: Request, res: Response) {
         marketId: data.marketId,
     })
     const orderbookIds = orderbook.map((ob) => {
-        ob._id
+        return ob._id
     })
     const pendingBuyers = await Bid.find({
         orderBookId: { $in: orderbookIds },
@@ -120,9 +120,9 @@ async function resolve(req: Request, res: Response) {
         orderBookId: { $in: orderbookIds },
         qty: { $gt: 0 }
     })
-    for (const asks of openAsks) {
+    for (const ask of openAsks) {
         await Ask.deleteOne({
-            _id: Ask._id
+            _id: ask._id
         })
     }
     return res.status(200).json({
@@ -131,3 +131,4 @@ async function resolve(req: Request, res: Response) {
         resolution: data.resolution
     });
 }
+

@@ -16,3 +16,8 @@ export const createOrderSchema = z.object({
     amount: z.number().int().min(1).max(99),
     qty: z.number().int().positive(),
 })
+
+export const deleteOrderSchema = z.object({
+    orderId: z.string(),
+    orderType: z.enum(["buy", "sell"]),
+})
