@@ -510,3 +510,61 @@ export async function getUserOrders(req: Request, res: Response) {
     }
 }
 
+// Helper function to aggregate depth for an orderbook
+async function getBookDepth(orderBookId: Types.ObjectId) {
+    const [bids, asks] = await Promise.all([
+        // Group Bids by price, sorted descending (highest buyer first)
+        Bid.aggregate([
+            { $match: { orderBookId, qty: { $gt: 0 } } },
+            { $group: { _id: "$price", totalQty: { $sum: "$qty" } } },
+            { $project: { _id: 0, price: "$_id", totalQty: 1 } },
+            { $sort: { price: -1 } }
+        ]),
+        // Group Asks by price, sorted ascending (cheapest seller first)
+        Ask.aggregate([
+            { $match: { orderBookId, qty: { $gt: 0 } } },
+            { $group: { _id: "$price", totalQty: { $sum: "$qty" } } },
+            { $project: { _id: 0, price: "$_id", totalQty: 1 } },
+            { $sort: { price: 1 } }
+        ])
+    ]);
+
+    return { bids, asks };
+}
+
+//Orderbook Depth 
+export async function getOrderBookDepth(req: Request, res: Response) {
+    try {
+        const { marketId } = req.params;
+
+        // Fetch both YES and NO orderbooks for this market
+        const [yesBook, noBook] = await Promise.all([
+            OrderBook.findOne({ marketId, type: "yes" }),
+            OrderBook.findOne({ marketId, type: "no" })
+        ]);
+
+        if (!yesBook && !noBook) {
+            return res.status(404).json({
+                message: "Orderbooks not found for this market"
+            });
+        }
+
+        // Aggregate depth for both in parallel
+        const [yesDepth, noDepth] = await Promise.all([
+            yesBook ? getBookDepth(yesBook._id as Types.ObjectId) : { bids: [], asks: [] },
+            noBook ? getBookDepth(noBook._id as Types.ObjectId) : { bids: [], asks: [] }
+        ]);
+
+        //  Return the grouped depth
+        return res.status(200).json({
+            yes: yesDepth,
+            no: noDepth
+        });
+    } catch (error: any) {
+        return res.status(500).json({
+            message: "Error fetching orderbook depth",
+            error: error.message
+        });
+    }
+}
+
