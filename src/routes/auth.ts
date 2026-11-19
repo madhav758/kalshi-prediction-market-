@@ -2,7 +2,7 @@
 
 import { Router } from "express";
 import { getProfile, getTransactions, onramp, signin, signup } from "../controller/auth";
-import auth from "../middleware";
+import { auth } from "../middleware";
 
 
 const router = Router();

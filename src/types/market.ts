@@ -5,6 +5,9 @@ import { z } from "zod";
 export const createMarketSchema = z.object({
     //title,initalWager,expiry, side
     title: z.string().trim().min(3),
+    expiry: z.coerce.date().refine((d) => d > new Date(), {
+        message: "expiry must be in the future",
+    }),
 })
 
 
@@ -21,3 +24,8 @@ export const deleteOrderSchema = z.object({
     orderId: z.string(),
     orderType: z.enum(["buy", "sell"]),
 })
+
+export const mintSchema = z.object({
+    marketId: z.string(),
+    qty: z.number().int().positive(),
+});

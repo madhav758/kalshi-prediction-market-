@@ -6,8 +6,10 @@ import { User } from "../model/user";
 import { WalletEvent } from "../model/walletEvent";
 import { Ask, Bid } from "../model/order";
 import { OrderBook } from "../model/orderBook";
+import { engine } from "../engine";
+import { client } from "../redis";
 
-async function resolve(req: Request, res: Response) {
+export async function resolve(req: Request, res: Response) {
     const { success, data } = resolveMarketSchema.safeParse(req.body)
     if (!success) {
         return res.status(400).json({
@@ -41,6 +43,9 @@ async function resolve(req: Request, res: Response) {
 
     market.resolution = data.resolution;
     await market.save();
+
+    //clear the redis cache
+    await client.del("market:all");
 
     //payout the winning shares
 
@@ -125,6 +130,12 @@ async function resolve(req: Request, res: Response) {
             _id: ask._id
         })
     }
+
+    // Clear the resolved orderbooks from RAM
+    for (const id of orderbookIds) {
+        await client.del(`depth:${id.toString()}`);
+    }
+
     return res.status(200).json({
         message: "Market resolved successfully",
         marketId: market._id,
