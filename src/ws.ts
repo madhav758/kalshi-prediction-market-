@@ -1,6 +1,10 @@
 import { WebSocket, WebSocketServer } from 'ws';
 import { clientMessageSchema, type ServerMessage } from './types/ws';
+import { client } from "./redis";
+
 const wss = new WebSocketServer({ port: 8080 });
+
+
 
 console.log("Websocket server running in ws://localhost:8080")
 
@@ -77,6 +81,20 @@ class RoomManager {
 const roomManager = new RoomManager();
 
 
+
+
+const sub = client.duplicate();
+sub.subscribe('trade_events', (err) => {
+    if (err) console.log(err);
+    else console.log("subscribed to trade events!!")
+})
+
+sub.on("message", (channel, rawMsg) => {
+    if (channel !== "trade_events") return;
+    const event = JSON.parse(rawMsg);
+    roomManager.broadcast(event.marketId, event);
+
+})
 
 
 

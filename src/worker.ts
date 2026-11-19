@@ -402,16 +402,38 @@ async function main() {
 
 
 
+// In-memory cache: orderBookId -> { marketId, side ("yes" | "no") }
+// Why? Clients subscribe by marketId, not orderBookId. Caching this in RAM
+// avoids querying MongoDB on every single trade/cancel.
+const orderBookInfo = new Map<string, { marketId: string; side: "yes" | "no" }>();
+
 
 //helper funciton that calls engine.getDeth and saves it to redis
+// Runs after boot hydration, every new order (handleCreate), 
+// and every cancel (handleCancel)
 async function syncDepth(orderBookId: string) {
     //get the depth using engine.getDepth(orderBookId)
-    // push it to the redis (figure out what type of resis datset we nened streams or something else)
+    // push it to the redis 
     //call it when ever there is a hjaandlecreatre or handlecancel and once on hydrate
+    // 1. Grab the latest { bids, asks } snapshot from the in-memory matching engine
     const depth = engine.getDepth(orderBookId);
+    // 2. Save this  to Redis (String) so HTTP GET /orderbook always reads fresh data
     await client.set(`depth:${orderBookId}`, JSON.stringify(depth));
+    // 3. Find which marketId and side ("yes" or "no") this orderBookId belongs to
+    let info = orderBookInfo.get(orderBookId);
+    if (!info) {
+        const book = await OrderBook.findById(orderBookId);
+        if (!book) return;
+        info = { marketId: book.marketId.toString(), side: book.type as "yes" | "no" };
+        orderBookInfo.set(orderBookId, info);
+    }
+    // 4. Broadcast live update on Redis Pub/Sub so the WebSocket server 
+    // pushes it to subscribed clients
     await client.publish('trade_events', JSON.stringify({
-        event: "orderbook.update", orderBookId, depth
+        type: "orderbook.update",
+        marketId: info.marketId,
+        side: info.side,
+        depth
     }))
 }
 
